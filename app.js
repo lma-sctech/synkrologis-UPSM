@@ -1,217 +1,236 @@
-﻿/* global gsap, ScrollTrigger */
+/* global gsap, ScrollTrigger */
 
-gsap.registerPlugin(ScrollTrigger);
-
-const sections = gsap.utils.toArray('.section, .hero');
-sections.forEach((section) => {
-  const elements = section.querySelectorAll('h2, h3, .card, .panel, .step, .time-item, .planning div, .commitments div');
-  gsap.from(elements, {
-    opacity: 0,
-    y: 24,
-    duration: 0.8,
-    stagger: 0.08,
-    ease: 'power2.out',
-    scrollTrigger: {
-      trigger: section,
-      start: 'top 75%',
-    },
-  });
-});
-
-gsap.from('.hero-inner', {
-  opacity: 0,
-  y: 30,
-  duration: 1.2,
-  ease: 'power3.out',
-});
-
-// Animation réseau sous la section Vision & Approche
 (function () {
-  const canvas = document.getElementById('network-bg');
-  if (!canvas) return;
+  var sections = Array.prototype.slice.call(document.querySelectorAll('.offer-section'));
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc-link'));
+  var printState = null;
+  var PRINT_PAGE_BUDGET = 4200;
+  var PRINT_MIN_REMAINDER = 700;
+  var animatedPrintTargets = Array.prototype.slice.call(
+    document.querySelectorAll('.hero-card, .intro-card, .sections-card, .offer-section')
+  );
 
-  const ctx = canvas.getContext('2d');
-  let width = 0;
-  let height = 0;
-  let dpr = window.devicePixelRatio || 1;
-
-  const isMobile = window.innerWidth < 720;
-  const HUB_COUNT = isMobile ? 4 : 5;
-  const POINT_COUNT = isMobile ? 18 : 30;
-  const FLOW_COUNT = isMobile ? 6 : 10;
-
-  let hubs = [];
-  let points = [];
-  let flows = [];
-  const icons = {};
-  const iconKeys = [
-    'apartment',
-    'factory',
-    'local_convenience_store',
-    'store',
-    'warehouse',
-  ];
-
-  function loadIcons() {
-    iconKeys.forEach((key) => {
-      const img = new Image();
-      img.src = `static/${key}-blue.svg`;
-      icons[key] = img;
-    });
-  }
-
-  function resize() {
-    const parent = canvas.parentElement;
-    width = parent.clientWidth;
-    height = parent.clientHeight;
-    dpr = window.devicePixelRatio || 1;
-
-    canvas.width = width * dpr;
-    canvas.height = height * dpr;
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
-
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.scale(dpr, dpr);
-
-    const radius = Math.min(width, height) * 0.32;
-    hubs = Array.from({ length: HUB_COUNT }).map((_, i) => {
-      const angle = (i / HUB_COUNT) * Math.PI * 2 - Math.PI / 2;
-      return {
-        x: width / 2 + Math.cos(angle) * radius,
-        y: height / 2 + Math.sin(angle) * radius,
-        type: iconKeys[i % iconKeys.length],
-      };
-    });
-
-    points = Array.from({ length: POINT_COUNT }).map(() => {
-      const hub = Math.floor(Math.random() * hubs.length);
-      return {
-        hub,
-        angle: Math.random() * Math.PI * 2,
-        radius: 26 + Math.random() * 70,
-        speed: 0.002 + Math.random() * 0.004,
-        r: 1.8 + Math.random() * 1.4,
-      };
-    });
-
-    flows = Array.from({ length: FLOW_COUNT }).map((_, index) => {
-      const start = index % hubs.length;
-      const end = (index + 2) % hubs.length;
-      return {
-        start,
-        end,
-        t: Math.random(),
-        speed: 0.003 + Math.random() * 0.004,
-      };
-    });
-  }
-
-  function drawLinks() {
-    ctx.save();
-    ctx.globalAlpha = 0.12;
-    ctx.strokeStyle = '#1f3564';
-    ctx.lineWidth = 1.5;
-    for (let i = 0; i < hubs.length; i++) {
-      for (let j = i + 1; j < hubs.length; j++) {
-        ctx.beginPath();
-        ctx.moveTo(hubs[i].x, hubs[i].y);
-        ctx.lineTo(hubs[j].x, hubs[j].y);
-        ctx.stroke();
+  var updatePrintMetadata = function () {
+    var printDate = document.getElementById('printDate');
+    if (printDate) {
+      var dateText;
+      try {
+        dateText = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' }).format(new Date());
+      } catch (err) {
+        dateText = new Date().toLocaleDateString('fr-FR');
       }
+      printDate.textContent = dateText;
     }
-    ctx.restore();
-  }
 
-  function drawFlows() {
-    flows.forEach((flow) => {
-      const a = hubs[flow.start];
-      const b = hubs[flow.end];
-      const x = a.x + (b.x - a.x) * flow.t;
-      const y = a.y + (b.y - a.y) * flow.t;
-      ctx.beginPath();
-      ctx.arc(x, y, 4.8, 0, Math.PI * 2);
-      ctx.fillStyle = '#f4b63a';
-      ctx.shadowColor = '#f4b63a';
-      ctx.shadowBlur = 10;
-      ctx.globalAlpha = 0.9;
-      ctx.fill();
-      ctx.shadowBlur = 0;
+    var printTocList = document.getElementById('printTocList');
+    if (printTocList && printTocList.children.length === 0) {
+      links.forEach(function (link) {
+        var item = document.createElement('li');
+        item.textContent = link.textContent.trim();
+        printTocList.appendChild(item);
+      });
+    }
+  };
+
+  var setButtonLabel = null;
+
+  var getSectionPrintWeight = function (section) {
+    var text = (section.textContent || '').replace(/\s+/g, ' ').trim();
+    var weight = text.length;
+
+    var rowCount = section.querySelectorAll('tr').length;
+    if (rowCount) weight += rowCount * 220;
+
+    var headingCount = section.querySelectorAll('h3, h4').length;
+    if (headingCount) weight += headingCount * 90;
+
+    var listItemCount = section.querySelectorAll('li').length;
+    if (listItemCount) weight += listItemCount * 45;
+
+    return weight;
+  };
+
+  var applySmartPrintBreaks = function () {
+    sections.forEach(function (sec) {
+      sec.classList.remove('print-page-break-before');
     });
-  }
 
-  function drawPoints() {
-    ctx.save();
-    ctx.globalAlpha = 0.6;
-    ctx.fillStyle = '#1f3564';
-    points.forEach((p) => {
-      const hub = hubs[p.hub];
-      const x = hub.x + Math.cos(p.angle) * p.radius;
-      const y = hub.y + Math.sin(p.angle) * p.radius;
-      ctx.beginPath();
-      ctx.arc(x, y, p.r, 0, Math.PI * 2);
-      ctx.fill();
-    });
-    ctx.restore();
-  }
+    var leadWeight = 0;
+    var hero = document.getElementById('hero');
+    var intro = document.querySelector('.intro-card');
+    if (hero) leadWeight += (hero.textContent || '').replace(/\s+/g, ' ').trim().length;
+    if (intro) leadWeight += (intro.textContent || '').replace(/\s+/g, ' ').trim().length;
 
-  function drawHubs() {
-    hubs.forEach((hub) => {
-      ctx.beginPath();
-      ctx.arc(hub.x, hub.y, 6, 0, Math.PI * 2);
-      ctx.fillStyle = '#1f3564';
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(hub.x, hub.y, 12, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(31, 53, 100, 0.18)';
-      ctx.lineWidth = 2;
-      ctx.stroke();
+    var runningWeight = leadWeight;
 
-      const icon = icons[hub.type];
-      if (icon && icon.complete) {
-        ctx.drawImage(icon, hub.x - 18, hub.y - 18, 36, 36);
+    sections.forEach(function (sec) {
+      var sectionWeight = getSectionPrintWeight(sec);
+      var wouldOverflow = runningWeight > 0 && (runningWeight + sectionWeight > PRINT_PAGE_BUDGET);
+      var remaining = PRINT_PAGE_BUDGET - runningWeight;
+
+      if (wouldOverflow && remaining <= PRINT_MIN_REMAINDER) {
+        sec.classList.add('print-page-break-before');
+        runningWeight = 0;
       }
+
+      runningWeight += sectionWeight;
+      if (runningWeight > PRINT_PAGE_BUDGET) runningWeight = sectionWeight;
+    });
+  };
+
+  var prepareForPrint = function () {
+    if (printState) return;
+    printState = {
+      sectionOpenStates: sections.map(function (d) { return d.open; }),
+      hash: window.location.hash
+    };
+
+    sections.forEach(function (d) {
+      d.open = true;
+    });
+
+    document.body.classList.add('print-mode');
+    if (window.location.hash && window.history && window.history.replaceState) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+    animatedPrintTargets.forEach(function (el) {
+      el.style.opacity = '';
+      el.style.visibility = '';
+      el.style.transform = '';
+      el.style.filter = '';
+    });
+    updatePrintMetadata();
+    applySmartPrintBreaks();
+    if (setButtonLabel) setButtonLabel();
+  };
+
+  var restoreAfterPrint = function () {
+    if (!printState) return;
+    var savedState = printState;
+
+    sections.forEach(function (d, index) {
+      d.open = !!savedState.sectionOpenStates[index];
+      d.classList.remove('print-page-break-before');
+    });
+
+    printState = null;
+    document.body.classList.remove('print-mode');
+    if (savedState.hash && window.history && window.history.replaceState) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search + savedState.hash);
+    }
+    if (setButtonLabel) setButtonLabel();
+  };
+
+  var logoutBtn = document.getElementById('logout');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', function () {
+      sessionStorage.removeItem('upsm_access');
+      window.location.replace('login.html');
+    });
+  }
+  var pdfBtn = document.getElementById('downloadPdf');
+  if (pdfBtn) {
+    pdfBtn.addEventListener('click', function (event) {
+      event.preventDefault();
+      prepareForPrint();
+      window.setTimeout(function () {
+        window.print();
+      }, 40);
     });
   }
 
-  function update() {
-    flows.forEach((flow) => {
-      flow.t += flow.speed;
-      if (flow.t > 1) flow.t = 0;
+  var expandBtn = document.getElementById('expandAll');
+  if (expandBtn && sections.length) {
+    setButtonLabel = function () {
+      var allOpen = sections.every(function (d) { return d.open; });
+      expandBtn.textContent = allOpen ? 'Tout replier' : 'Tout d\u00E9plier';
+    };
+
+    setButtonLabel();
+
+    expandBtn.addEventListener('click', function () {
+      var allOpen = sections.every(function (d) { return d.open; });
+      sections.forEach(function (d) {
+        d.open = !allOpen;
+      });
+      setButtonLabel();
     });
-    points.forEach((p) => {
-      p.angle += p.speed;
+
+    sections.forEach(function (d) {
+      d.addEventListener('toggle', setButtonLabel);
     });
   }
 
-  function animate() {
-    ctx.clearRect(0, 0, width, height);
-    drawLinks();
-    drawFlows();
-    drawPoints();
-    drawHubs();
-    update();
-    requestAnimationFrame(animate);
+  var progress = document.getElementById('readProgress');
+  if (progress) {
+    var onScroll = function () {
+      var doc = document.documentElement;
+      var max = doc.scrollHeight - doc.clientHeight;
+      var pct = max > 0 ? (window.scrollY / max) * 100 : 0;
+      progress.style.width = Math.max(0, Math.min(100, pct)) + '%';
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
   }
 
-  loadIcons();
-  resize();
-  window.addEventListener('resize', resize);
-  requestAnimationFrame(animate);
+  if (links.length && 'IntersectionObserver' in window) {
+    var byId = {};
+    links.forEach(function (link) {
+      var id = link.getAttribute('href').replace('#', '');
+      byId[id] = link;
+    });
+
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        var id = entry.target.getAttribute('id');
+        links.forEach(function (l) { l.classList.remove('active'); });
+        if (byId[id]) byId[id].classList.add('active');
+      });
+    }, { rootMargin: '-35% 0px -55% 0px', threshold: 0.01 });
+
+    sections.forEach(function (sec) { observer.observe(sec); });
+  }
+
+  window.addEventListener('beforeprint', prepareForPrint);
+  window.addEventListener('afterprint', restoreAfterPrint);
+
+  if (window.matchMedia) {
+    var printMedia = window.matchMedia('print');
+    if (printMedia.addEventListener) {
+      printMedia.addEventListener('change', function (event) {
+        if (!event.matches) restoreAfterPrint();
+      });
+    } else if (printMedia.addListener) {
+      printMedia.addListener(function (event) {
+        if (!event.matches) restoreAfterPrint();
+      });
+    }
+  }
+
+  updatePrintMetadata();
+
+  if (window.gsap && window.ScrollTrigger) {
+    gsap.registerPlugin(ScrollTrigger);
+    gsap.from('.hero-card, .intro-card', {
+      opacity: 0,
+      y: 24,
+      duration: 0.7,
+      stagger: 0.12,
+      ease: 'power2.out'
+    });
+
+    gsap.utils.toArray('.offer-section').forEach(function (section) {
+      gsap.from(section, {
+        opacity: 0,
+        y: 18,
+        duration: 0.55,
+        ease: 'power2.out',
+        scrollTrigger: {
+          trigger: section,
+          start: 'top 86%'
+        }
+      });
+    });
+  }
 })();
-
-const logoutBtn = document.getElementById('logout');
-if (logoutBtn) {
-  logoutBtn.addEventListener('click', () => {
-    sessionStorage.removeItem('upsm_access');
-    window.location.replace('login.html');
-  });
-}
-
-const pdfBtn = document.getElementById('downloadPdf');
-if (pdfBtn) {
-  pdfBtn.addEventListener('click', (event) => {
-    event.preventDefault();
-    window.print();
-  });
-}
