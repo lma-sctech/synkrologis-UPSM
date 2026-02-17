@@ -1,0 +1,528 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UPSM - Digital Twin Supply Chain</title>
+<style>
+:root {
+    --bg-1: #f4f8ff;
+    --bg-2: #e8f1ff;
+    --panel: rgba(255, 255, 255, 0.86);
+    --line-empty: #2dd4bf;
+    --line-full: #f59e0b;
+    --text: #0f172a;
+    --muted: #475569;
+    --accent: #0ea5e9;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    color: var(--text);
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    background:
+        radial-gradient(1200px 700px at 20% 10%, #cde4ff 0%, transparent 70%),
+        radial-gradient(900px 700px at 90% 90%, #d9f2f0 0%, transparent 60%),
+        linear-gradient(145deg, var(--bg-1), var(--bg-2));
+    overflow: hidden;
+}
+
+.app {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+}
+
+canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#networkCanvas {
+    z-index: 1;
+}
+
+#particleCanvas {
+    z-index: 2;
+    pointer-events: none;
+}
+
+.header {
+    position: absolute;
+    z-index: 4;
+    left: 20px;
+    top: 18px;
+    padding: 8px 12px;
+    background: var(--panel);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 12px;
+    backdrop-filter: blur(8px);
+}
+
+.legend {
+    display: flex;
+    gap: 12px;
+    font-size: 11px;
+    color: #1e293b;
+}
+
+.legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.legend i {
+    width: 18px;
+    height: 6px;
+    border-radius: 10px;
+    display: inline-block;
+    border: 1px solid rgba(15, 23, 42, 0.28);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+.legend .full {
+    background: var(--line-full);
+}
+
+.legend .empty {
+    background: var(--line-empty);
+}
+
+@media print {
+    .legend i {
+        width: 22px;
+        height: 8px;
+        border-color: rgba(15, 23, 42, 0.45);
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}
+
+
+.node {
+    position: absolute;
+    z-index: 3;
+    width: 124px;
+    height: 124px;
+    margin-left: -62px;
+    margin-top: -62px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #ffffff, #e2e8f0 70%);
+    border: 1px solid rgba(148, 163, 184, 0.5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.node:hover {
+    transform: scale(1.08);
+    border-color: rgba(56, 189, 248, 0.75);
+    box-shadow: 0 0 24px rgba(14, 165, 233, 0.25);
+}
+
+.node img {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+}
+
+.node .name {
+    font-size: 11px;
+    line-height: 1.2;
+    text-align: center;
+    width: 95px;
+}
+
+.node-store {
+    width: 98px;
+    height: 98px;
+    margin-left: -49px;
+    margin-top: -49px;
+}
+
+.node-store img {
+    width: 32px;
+    height: 32px;
+}
+
+.node-store .name {
+    width: 78px;
+    font-size: 10px;
+}
+
+.tooltip {
+    position: absolute;
+    z-index: 5;
+    left: 47%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(420px, calc(100vw - 48px));
+    min-height: 92px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(148, 163, 184, 0.45);
+    border-radius: 12px;
+    backdrop-filter: blur(8px);
+}
+
+.tooltip h3 {
+    margin: 0;
+    font-size: 14px;
+    color: #0369a1;
+}
+
+.tooltip p {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: #334155;
+    line-height: 1.4;
+}
+
+@media (max-width: 980px) {
+    .header {
+        left: 12px;
+        top: 12px;
+    }
+    .node {
+        width: 106px;
+        height: 106px;
+        margin-left: -53px;
+        margin-top: -53px;
+    }
+    .node .name {
+        width: 86px;
+        font-size: 10px;
+    }
+    .node-store {
+        width: 88px;
+        height: 88px;
+        margin-left: -44px;
+        margin-top: -44px;
+    }
+    .node-store img {
+        width: 28px;
+        height: 28px;
+    }
+    .node-store .name {
+        width: 70px;
+        font-size: 9px;
+    }
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+    <canvas id="networkCanvas"></canvas>
+    <canvas id="particleCanvas"></canvas>
+
+    <div class="header">
+        <div class="legend">
+            <span><i class="full"></i> Flux pleins</span>
+            <span><i class="empty"></i> Flux vides</span>
+        </div>
+    </div>
+
+    <div class="tooltip" id="tooltip">
+        <h3 id="tooltipTitle">1. Constitution et pilotage du stock</h3>
+        <p id="tooltipDesc">Le distributeur maintient un stock de cageots vides afin d'assurer la disponibilite du circuit et lisser la demande des flux sortants.</p>
+    </div>
+</div>
+
+<script>
+const app = document.getElementById("app");
+const networkCanvas = document.getElementById("networkCanvas");
+const particleCanvas = document.getElementById("particleCanvas");
+const netCtx = networkCanvas.getContext("2d");
+const partCtx = particleCanvas.getContext("2d");
+
+const tooltipTitle = document.getElementById("tooltipTitle");
+const tooltipDesc = document.getElementById("tooltipDesc");
+
+const stageDefs = [
+    {
+        id: "stock",
+        shortLabel: "Stock",
+        label: "1. Constitution et pilotage du stock",
+        icon: "static/icone svg/warehouse-svgrepo-com.svg",
+        x: 0.5,
+        y: 0.09,
+        desc: "UPSM constitue et maintient le stock de cageots vides (neufs ou remis en etat) pour alimenter en continu le circuit logistique."
+    },
+    {
+        id: "mise",
+        shortLabel: "Mise à disposition vide",
+        label: "2. Mise a disposition",
+        icon: "static/icone svg/open-box-svgrepo-com.svg",
+        x: 0.70,
+        y: 0.18,
+        desc: "Les cageots vides sont mis a disposition des producteurs via enlevement ou livraison."
+    },
+    {
+        id: "condition",
+        shortLabel: "Conditionnement",
+        label: "3. Conditionnement",
+        icon: "static/icone svg/boxes-box-svgrepo-com.svg",
+        x: 0.88,
+        y: 0.50,
+        desc: "Les fournisseurs agricoles remplissent les cageots avec les produits."
+    },
+    {
+        id: "cdc",
+        shortLabel: "Centre distribution",
+        label: "4. Livraison au centre de distribution",
+        icon: "static/icone svg/inventory-logistics-warehouse-svgrepo-com.svg",
+        x: 0.74,
+        y: 0.78,
+        desc: "Les cageots pleins convergent vers le centre de distribution du client pour preparation."
+    },
+    {
+        id: "store1",
+        shortLabel: "Magasin 1",
+        label: "5. Distribution magasin 1",
+        icon: "static/icone svg/store-svgrepo-com.svg",
+        x: 0.28,
+        y: 0.86,
+        desc: "Le centre de distribution envoie les cageots pleins vers le magasin."
+    },
+    {
+        id: "store2",
+        shortLabel: "Magasin 2",
+        label: "5. Distribution magasin 2",
+        icon: "static/icone svg/store-svgrepo-com.svg",
+        x: 0.40,
+        y: 0.88,
+        desc: "Le centre de distribution envoie les cageots pleins vers le magasin."
+    },
+    {
+        id: "store3",
+        shortLabel: "Magasin 3",
+        label: "5. Distribution magasin 3",
+        icon: "static/icone svg/store-svgrepo-com.svg",
+        x: 0.52,
+        y: 0.86,
+        desc: "Le centre de distribution envoie les cageots pleins vers le magasin."
+    },
+    {
+        id: "collect",
+        shortLabel: "Collecte vides",
+        label: "6. Collecte des cageots vides",
+        icon: "static/icone svg/return-svgrepo-com.svg",
+        x: 0.16,
+        y: 0.50,
+        desc: "Apres vente, les cageots vides sont recuperes en magasins, tries et prepares pour retour avec controles."
+    },
+    {
+        id: "clean",
+        shortLabel: "Nettoyage",
+        label: "7. Nettoyage / remise en circuit",
+        icon: "static/icone svg/shower-svgrepo-com.svg",
+        x: 0.26,
+        y: 0.20,
+        desc: "Les cageots vides sont laves, controles, repares certainement puis reintegres pour une nouvelle rotation vers les producteurs."
+    }
+];
+
+const edges = [
+    { from: "stock", to: "mise", type: "empty", speed: 0.00011, width: 2.7 },
+    { from: "mise", to: "condition", type: "empty", speed: 0.00012, width: 2.5 },
+    { from: "condition", to: "cdc", type: "full", speed: 0.00014, width: 3.1 },
+    { from: "cdc", to: "store1", type: "full", speed: 0.00013, width: 2.8 },
+    { from: "cdc", to: "store2", type: "full", speed: 0.00013, width: 2.8 },
+    { from: "cdc", to: "store3", type: "full", speed: 0.00013, width: 2.8 },
+    { from: "store1", to: "collect", type: "empty", speed: 0.0001, width: 2.5 },
+    { from: "store2", to: "collect", type: "empty", speed: 0.0001, width: 2.5 },
+    { from: "store3", to: "collect", type: "empty", speed: 0.0001, width: 2.5 },
+    { from: "collect", to: "clean", type: "empty", speed: 0.00011, width: 2.6 },
+    { from: "clean", to: "stock", type: "empty", speed: 0.00012, width: 2.8 }
+];
+
+const nodesById = {};
+let particles = [];
+let lastFrame = performance.now();
+let hoveredNodeId = stageDefs[0].id;
+let windowSize = { w: 0, h: 0 };
+const layoutOffsetX = -0.03;
+
+function makeNodeElements() {
+    stageDefs.forEach(stage => {
+        const node = document.createElement("div");
+        node.className = "node";
+        if (stage.id.startsWith("store") || stage.id === "mise" || stage.id === "clean") {
+            node.classList.add("node-store");
+        }
+        node.dataset.id = stage.id;
+        node.innerHTML = `
+            <img src="${stage.icon}" alt="${stage.shortLabel}">
+            <div class="name">${stage.shortLabel}</div>
+        `;
+        node.addEventListener("mouseenter", () => {
+            hoveredNodeId = stage.id;
+            tooltipTitle.textContent = stage.label;
+            tooltipDesc.textContent = stage.desc;
+        });
+        node.addEventListener("click", () => {
+            hoveredNodeId = stage.id;
+            tooltipTitle.textContent = stage.label;
+            tooltipDesc.textContent = stage.desc;
+        });
+        app.appendChild(node);
+        nodesById[stage.id] = { stage, el: node, x: 0, y: 0 };
+    });
+}
+
+function resize() {
+    const rect = app.getBoundingClientRect();
+    windowSize.w = Math.max(320, rect.width);
+    windowSize.h = Math.max(320, rect.height);
+    networkCanvas.width = windowSize.w;
+    networkCanvas.height = windowSize.h;
+    particleCanvas.width = windowSize.w;
+    particleCanvas.height = windowSize.h;
+
+    stageDefs.forEach(stage => {
+        const node = nodesById[stage.id];
+        const shiftedX = Math.max(0.06, Math.min(0.94, stage.x + layoutOffsetX));
+        node.x = shiftedX * windowSize.w;
+        node.y = stage.y * windowSize.h;
+        node.el.style.left = `${node.x}px`;
+        node.el.style.top = `${node.y}px`;
+    });
+}
+
+function spawnParticle(edge) {
+    const hueOffset = edge.type === "full" ? Math.random() * 24 : Math.random() * 14;
+    particles.push({
+        edge,
+        t: Math.random() * 0.98,
+        radius: edge.type === "full" ? 3 + Math.random() * 1.4 : 2.2 + Math.random(),
+        alpha: 0.6 + Math.random() * 0.3,
+        hueOffset
+    });
+}
+
+function initParticles() {
+    particles = [];
+    edges.forEach(edge => {
+        const count = edge.type === "full" ? 34 : 28;
+        for (let i = 0; i < count; i += 1) {
+            spawnParticle(edge);
+        }
+    });
+}
+
+function pathPoint(from, to, t) {
+    const cx = (from.x + to.x) / 2;
+    const cy = (from.y + to.y) / 2;
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const len = Math.max(1, Math.hypot(dx, dy));
+    const nx = -dy / len;
+    const ny = dx / len;
+    const baseCurve = Math.min(70, len * 0.12);
+    const curve = (Math.sin((from.x + to.y) * 0.0012) * 0.5 + 0.7) * baseCurve;
+    const qx = cx + nx * curve;
+    const qy = cy + ny * curve;
+
+    const omt = 1 - t;
+    const x = omt * omt * from.x + 2 * omt * t * qx + t * t * to.x;
+    const y = omt * omt * from.y + 2 * omt * t * qy + t * t * to.y;
+    return { x, y, qx, qy };
+}
+
+function drawNetwork() {
+    netCtx.clearRect(0, 0, windowSize.w, windowSize.h);
+    netCtx.save();
+
+    edges.forEach(edge => {
+        const from = nodesById[edge.from];
+        const to = nodesById[edge.to];
+        const base = pathPoint(from, to, 0.5);
+        const hovered = hoveredNodeId === edge.from || hoveredNodeId === edge.to;
+        const color = edge.type === "full" ? "245, 158, 11" : "45, 212, 191";
+        const glow = hovered ? 0.55 : 0.28;
+
+        netCtx.beginPath();
+        netCtx.moveTo(from.x, from.y);
+        netCtx.quadraticCurveTo(base.qx, base.qy, to.x, to.y);
+        netCtx.strokeStyle = `rgba(${color}, ${glow})`;
+        netCtx.lineWidth = edge.width;
+        netCtx.setLineDash(edge.type === "full" ? [] : [8, 8]);
+        netCtx.stroke();
+
+        netCtx.beginPath();
+        netCtx.moveTo(from.x, from.y);
+        netCtx.quadraticCurveTo(base.qx, base.qy, to.x, to.y);
+        netCtx.strokeStyle = `rgba(15,23,42,${hovered ? 0.2 : 0.1})`;
+        netCtx.lineWidth = 0.9;
+        netCtx.setLineDash([]);
+        netCtx.stroke();
+    });
+
+    netCtx.restore();
+}
+
+function drawParticles(deltaMs) {
+    partCtx.clearRect(0, 0, windowSize.w, windowSize.h);
+
+    particles.forEach(p => {
+        const from = nodesById[p.edge.from];
+        const to = nodesById[p.edge.to];
+        p.t += p.edge.speed * deltaMs;
+        if (p.t >= 1) {
+            p.t = Math.random() * 0.08;
+        }
+
+        const point = pathPoint(from, to, p.t);
+        const fullColor = `hsla(${35 + p.hueOffset}, 94%, 58%, ${p.alpha})`;
+        const emptyColor = `hsla(${170 + p.hueOffset}, 82%, 56%, ${p.alpha})`;
+        const color = p.edge.type === "full" ? fullColor : emptyColor;
+
+        partCtx.beginPath();
+        partCtx.arc(point.x, point.y, p.radius, 0, Math.PI * 2);
+        partCtx.fillStyle = color;
+        partCtx.shadowBlur = 10;
+        partCtx.shadowColor = color;
+        partCtx.fill();
+        partCtx.shadowBlur = 0;
+    });
+}
+
+function tick(now) {
+    const deltaMs = Math.max(16, now - lastFrame);
+    lastFrame = now;
+
+    drawNetwork();
+    drawParticles(deltaMs);
+
+    requestAnimationFrame(tick);
+}
+
+function init() {
+    makeNodeElements();
+    resize();
+    initParticles();
+    requestAnimationFrame(tick);
+}
+
+window.addEventListener("resize", () => {
+    resize();
+    drawNetwork();
+});
+
+init();
+</script>
+</body>
+</html>

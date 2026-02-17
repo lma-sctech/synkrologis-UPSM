@@ -74,9 +74,9 @@ body.pdf-export-mode .progress {
 
 body.pdf-export-mode .presentation-layout {
   display: block;
-  margin: 0;
+  margin: 0 auto;
   padding: 0;
-  max-width: none;
+  max-width: 186mm;
 }
 
 body.pdf-export-mode .print-cover {
@@ -95,13 +95,13 @@ body.pdf-export-mode .print-cover-logos {
 }
 
 body.pdf-export-mode .print-logo {
-  max-height: 22mm;
+  max-height: 15mm;
   width: auto;
   object-fit: contain;
 }
 
 body.pdf-export-mode .print-logo-client {
-  max-height: 20mm;
+  max-height: 13mm;
 }
 
 body.pdf-export-mode .print-kicker {
@@ -173,6 +173,11 @@ body.pdf-export-mode .offer-section {
   filter: none !important;
 }
 
+body.pdf-export-mode .offer-section {
+  break-inside: avoid-page;
+  page-break-inside: avoid;
+}
+
 body.pdf-export-mode details,
 body.pdf-export-mode details > summary,
 body.pdf-export-mode details > *:not(summary) {
@@ -204,15 +209,16 @@ body.pdf-export-mode .offer-section.print-page-break-before {
 }
 
 .logo-img {
-  height: 38px;
+  height: 36px;
   width: auto;
   border-radius: 6px;
 }
 
 .client-logo-top {
-  height: 38px;
+  height: 36px;
   width: auto;
   object-fit: contain;
+  border-radius: 7px;
 }
 
 .nav {
@@ -370,32 +376,39 @@ body.pdf-export-mode .offer-section.print-page-break-before {
 }
 
 .kpi-grid {
-  margin-top: 16px;
+  margin: 16px auto 0;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(3, auto);
+  gap: 8px;
+  width: max-content;
+  max-width: 100%;
 }
 
 .kpi {
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #fff;
-  padding: 10px 12px;
+  padding: 8px 10px;
+  text-align: center;
 }
 
 .kpi-label {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
   font-weight: 700;
+  text-align: center;
 }
 
 .kpi-value {
   margin: 4px 0 0;
   color: var(--accent);
   font-weight: 800;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  text-align: center;
 }
 
 .offer-section {
@@ -447,6 +460,23 @@ body.pdf-export-mode .offer-section.print-page-break-before {
 .offer-content .sub-list {
   margin-top: 4px;
   margin-bottom: 0;
+}
+
+.signature-card {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 14px 16px;
+}
+
+.signature-card h3 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+
+.signature-card p {
+  margin: 4px 0;
 }
 
 .table-wrap {
@@ -524,6 +554,10 @@ body.pdf-export-mode .offer-section.print-page-break-before {
     height: 34px;
   }
 
+  .logo-img {
+    height: 34px;
+  }
+
   .page-footer {
     justify-content: center;
   }
@@ -534,6 +568,7 @@ body.pdf-export-mode .offer-section.print-page-break-before {
 
   .kpi-grid {
     grid-template-columns: 1fr;
+    width: 100%;
   }
 
   .hero-card,
@@ -576,13 +611,13 @@ body.pdf-export-mode .offer-section.print-page-break-before {
   }
 
   .print-logo {
-    max-height: 22mm;
+    max-height: 15mm;
     width: auto;
     object-fit: contain;
   }
 
   .print-logo-client {
-    max-height: 20mm;
+    max-height: 13mm;
   }
 
   .print-kicker {
@@ -656,7 +691,8 @@ body.pdf-export-mode .offer-section.print-page-break-before {
 
   .hero-card,
   .intro-card,
-  .sections-card {
+  .sections-card,
+  .signature-card {
     box-shadow: none;
     border: 1px solid #cfd8e3;
     margin: 0 0 10px;
@@ -666,6 +702,7 @@ body.pdf-export-mode .offer-section.print-page-break-before {
   .hero-card,
   .intro-card,
   .sections-card,
+  .signature-card,
   .offer-section {
     opacity: 1 !important;
     visibility: visible !important;
@@ -675,6 +712,30 @@ body.pdf-export-mode .offer-section.print-page-break-before {
 
   .offer-section {
     border-color: #cfdae8;
+    break-inside: avoid-page;
+    page-break-inside: avoid;
+  }
+
+  .kpi-grid {
+    margin-top: 8px;
+    gap: 6px;
+    grid-template-columns: repeat(3, auto);
+    width: fit-content;
+  }
+
+  .kpi {
+    padding: 5px 8px;
+    border-radius: 8px;
+  }
+
+  .kpi-label {
+    font-size: 7pt;
+    letter-spacing: 0.05em;
+  }
+
+  .kpi-value {
+    margin-top: 2px;
+    font-size: 9.2pt;
   }
 
   .offer-section > summary {
@@ -733,6 +794,11 @@ body.pdf-export-mode .offer-section.print-page-break-before {
   .page-footer {
     margin-top: 8mm;
     padding: 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .signature-card {
     break-inside: avoid;
     page-break-inside: avoid;
   }

@@ -4,14 +4,13 @@
   var sections = Array.prototype.slice.call(document.querySelectorAll('.offer-section'));
   var links = Array.prototype.slice.call(document.querySelectorAll('.toc-link'));
   var printState = null;
-  var PRINT_PAGE_BUDGET = 4200;
-  var PRINT_MIN_REMAINDER = 700;
   var animatedPrintTargets = Array.prototype.slice.call(
     document.querySelectorAll('.hero-card, .intro-card, .sections-card, .offer-section')
   );
 
   var updatePrintMetadata = function () {
     var printDate = document.getElementById('printDate');
+    var offerDate = document.getElementById('offerDate');
     if (printDate) {
       var dateText;
       try {
@@ -20,6 +19,9 @@
         dateText = new Date().toLocaleDateString('fr-FR');
       }
       printDate.textContent = dateText;
+      if (offerDate) offerDate.textContent = dateText;
+    } else if (offerDate) {
+      offerDate.textContent = new Date().toLocaleDateString('fr-FR');
     }
 
     var printTocList = document.getElementById('printTocList');
@@ -34,47 +36,50 @@
 
   var setButtonLabel = null;
 
-  var getSectionPrintWeight = function (section) {
-    var text = (section.textContent || '').replace(/\s+/g, ' ').trim();
-    var weight = text.length;
-
-    var rowCount = section.querySelectorAll('tr').length;
-    if (rowCount) weight += rowCount * 220;
-
-    var headingCount = section.querySelectorAll('h3, h4').length;
-    if (headingCount) weight += headingCount * 90;
-
-    var listItemCount = section.querySelectorAll('li').length;
-    if (listItemCount) weight += listItemCount * 45;
-
-    return weight;
-  };
-
-  var applySmartPrintBreaks = function () {
+  var clearPrintBreaks = function () {
     sections.forEach(function (sec) {
       sec.classList.remove('print-page-break-before');
     });
+  };
 
-    var leadWeight = 0;
-    var hero = document.getElementById('hero');
-    var intro = document.querySelector('.intro-card');
-    if (hero) leadWeight += (hero.textContent || '').replace(/\s+/g, ' ').trim().length;
-    if (intro) leadWeight += (intro.textContent || '').replace(/\s+/g, ' ').trim().length;
+  var getOuterHeight = function (el) {
+    if (!el) return 0;
+    var rect = el.getBoundingClientRect();
+    var style = window.getComputedStyle(el);
+    var mt = parseFloat(style.marginTop) || 0;
+    var mb = parseFloat(style.marginBottom) || 0;
+    return rect.height + mt + mb;
+  };
 
-    var runningWeight = leadWeight;
+  var applyHeightBasedPrintBreaks = function () {
+    clearPrintBreaks();
+    if (!sections.length) return;
+
+    var pageHeightPx = (297 - (12 * 2)) * (96 / 25.4);
+    var leadNodes = [
+      document.getElementById('hero'),
+      document.querySelector('.intro-card')
+    ];
+    var leadHeight = leadNodes.reduce(function (sum, node) {
+      return sum + getOuterHeight(node);
+    }, 0);
+
+    var running = leadHeight % pageHeightPx;
 
     sections.forEach(function (sec) {
-      var sectionWeight = getSectionPrintWeight(sec);
-      var wouldOverflow = runningWeight > 0 && (runningWeight + sectionWeight > PRINT_PAGE_BUDGET);
-      var remaining = PRINT_PAGE_BUDGET - runningWeight;
+      var sectionHeight = getOuterHeight(sec);
+      var fitsPage = sectionHeight <= pageHeightPx;
+      var wouldOverflow = running > 0 && (running + sectionHeight > pageHeightPx);
 
-      if (wouldOverflow && remaining <= PRINT_MIN_REMAINDER) {
+      if (fitsPage && wouldOverflow) {
         sec.classList.add('print-page-break-before');
-        runningWeight = 0;
+        running = 0;
       }
 
-      runningWeight += sectionWeight;
-      if (runningWeight > PRINT_PAGE_BUDGET) runningWeight = sectionWeight;
+      running += sectionHeight;
+      if (running >= pageHeightPx) {
+        running = sectionHeight >= pageHeightPx ? 0 : sectionHeight;
+      }
     });
   };
 
@@ -90,6 +95,7 @@
     });
 
     document.body.classList.add('print-mode');
+    document.body.classList.add('pdf-export-mode');
     if (window.location.hash && window.history && window.history.replaceState) {
       window.history.replaceState(null, '', window.location.pathname + window.location.search);
     }
@@ -99,8 +105,10 @@
       el.style.transform = '';
       el.style.filter = '';
     });
+    // Ensure layout is fully updated before measuring heights.
+    void document.body.offsetHeight;
     updatePrintMetadata();
-    applySmartPrintBreaks();
+    applyHeightBasedPrintBreaks();
     if (setButtonLabel) setButtonLabel();
   };
 
@@ -110,11 +118,12 @@
 
     sections.forEach(function (d, index) {
       d.open = !!savedState.sectionOpenStates[index];
-      d.classList.remove('print-page-break-before');
     });
+    clearPrintBreaks();
 
     printState = null;
     document.body.classList.remove('print-mode');
+    document.body.classList.remove('pdf-export-mode');
     if (savedState.hash && window.history && window.history.replaceState) {
       window.history.replaceState(null, '', window.location.pathname + window.location.search + savedState.hash);
     }
