@@ -36,6 +36,35 @@
 
   var setButtonLabel = null;
 
+  var centerSectionInViewport = function (id, smooth) {
+    var target = document.getElementById(id);
+    if (!target) return;
+    var rect = target.getBoundingClientRect();
+    var desiredTop = window.scrollY + rect.top - ((window.innerHeight - rect.height) / 2);
+    var top = Math.max(0, desiredTop);
+    window.scrollTo({
+      top: top,
+      behavior: smooth ? 'smooth' : 'auto'
+    });
+  };
+
+  var openSectionById = function (id, smoothScroll) {
+    if (!id) return;
+    var target = document.getElementById(id);
+    if (!target) return;
+
+    if (target.tagName === 'DETAILS') {
+      target.open = true;
+    } else {
+      var parentDetails = target.closest ? target.closest('details.offer-section') : null;
+      if (parentDetails) parentDetails.open = true;
+    }
+
+    centerSectionInViewport(id, !!smoothScroll);
+
+    if (setButtonLabel) setButtonLabel();
+  };
+
   var clearPrintBreaks = function () {
     sections.forEach(function (sec) {
       sec.classList.remove('print-page-break-before');
@@ -200,6 +229,27 @@
 
     sections.forEach(function (sec) { observer.observe(sec); });
   }
+
+  links.forEach(function (link) {
+    link.addEventListener('click', function (event) {
+      var id = link.getAttribute('href');
+      if (!id || id.charAt(0) !== '#') return;
+      event.preventDefault();
+      var rawId = id.slice(1);
+      openSectionById(rawId, true);
+      if (window.history && window.history.pushState) {
+        window.history.pushState(null, '', '#' + rawId);
+      }
+    });
+  });
+
+  if (window.location.hash) {
+    openSectionById(window.location.hash.slice(1), false);
+  }
+
+  window.addEventListener('hashchange', function () {
+    if (window.location.hash) openSectionById(window.location.hash.slice(1), false);
+  });
 
   window.addEventListener('beforeprint', prepareForPrint);
   window.addEventListener('afterprint', restoreAfterPrint);
